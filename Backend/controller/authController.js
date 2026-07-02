@@ -12,7 +12,7 @@ const register = async(req, res)=>{
                 message: "Please fill up the name, email and password",
             })
         }
-
+        //check with other email
         const existingUser = await user.findOne({$or: [{EMAIL}]});
         if(existingUser){
             res.status(400).json({
@@ -21,6 +21,7 @@ const register = async(req, res)=>{
             })
         }
 
+        
         
     }catch(error){
 
