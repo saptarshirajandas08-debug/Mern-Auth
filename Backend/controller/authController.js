@@ -1,6 +1,7 @@
 const {user} = require('../models/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken'); 
+const transporter = require('../config/nodemailer');
 
 const register = async(req, res)=>{
     try{
@@ -38,6 +39,15 @@ const register = async(req, res)=>{
             sameSite: process.env.NODE_ENV === 'production'? "none":"strict",
             maxAge: 7*24*60*60*1000,
         })
+
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: EMAIL,
+            subject: "Welcome to our website",
+            text: `Your account is created with email id ${EMAIL}`,
+        }
+
+        await transporter.sendMail(mailOptions);
 
         res.status(201).json({
             success: true,
@@ -126,4 +136,23 @@ const logout = async (req, res) => {
     }
 };
 
-module.exports ={register, login, logout};
+const sendVerifyOtp = async(req, res)=>{
+    try{
+        const {userId} = req.body;
+
+        const user = await user.findOne({userId});
+        if(user.IS_ACCOUNT_VERIFIED){
+            res.status(400).json({
+                success: false,
+                message: "Account Already Verified",
+            })
+        }
+    }catch(error){
+        res.status(500).json({
+            success: false,
+            message: "500 Internal Server Error",
+        })
+    }
+}
+
+module.exports ={register, login, logout, sendVerifyOtp};
