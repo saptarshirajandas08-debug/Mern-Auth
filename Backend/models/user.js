@@ -28,11 +28,11 @@ const userSchema = new mongoose.Schema({
     },
     RESET_OTP:{
         type: String,
-        required: '',
+        default: '',
     },
     RESET_OTP_EXPIRED_AT:{
         type: Number,
-        required: 0,
+        default: 0,
     }
 })
 
