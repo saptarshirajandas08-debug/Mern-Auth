@@ -92,7 +92,7 @@ const login = async(req, res)=>{
             })
         }
 
-        const token = jwt.sign({id: user._id}, process.env.JWT_SECRET_KEY, {expiresIn: "7d"});
+        const token = jwt.sign({id: findEmail._id}, process.env.JWT_SECRET_KEY, {expiresIn: "7d"});
 
         res.cookie('token', token, {
             httpOnly: true,
@@ -139,20 +139,83 @@ const logout = async (req, res) => {
 const sendVerifyOtp = async(req, res)=>{
     try{
         const {userId} = req.body;
+        const foundUser = await user.findOne({_id: userId});  
 
-        const user = await user.findOne({userId});
-        if(user.IS_ACCOUNT_VERIFIED){
+        if(!foundUser){
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        if(foundUser.IS_ACCOUNT_VERIFIED){
+            return res.status(400).json({ success: false, message: "Account Already Verified" });
+        }
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        foundUser.VERIFY_OTP = otp;
+        foundUser.VERIFY_OTP_EXPIRED_AT = Date.now() + 24 * 60 * 60 * 1000; 
+        await foundUser.save();   
+
+        await transporter.sendMail({
+            from: process.env.SENDER_EMAIL,
+            to: foundUser.EMAIL,
+            subject: "Account Verification OTP",
+            text: `Your OTP is ${otp}. Verify your account using this OTP.`,
+        });
+
+            return res.status(200).json({ success: true, message: "OTP sent successfully" });
+        }catch(error){
+            console.log(error);
+            return res.status(500).json({ success: false, message: "500 Internal Server Error" });
+        }
+};
+
+const verifyOTP = async(req, res)=>{
+    try{
+        const{userId, otp} = req.body;
+        if(!userId || !otp){
             res.status(400).json({
                 success: false,
-                message: "Account Already Verified",
+                message: "Information is missing"
             })
         }
+        const finduser = await user.findById(userId);
+        if(!finduser){
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+            })
+        }
+
+        if(finduser.VERIFY_OTP === '' || finduser.VERIFY_OTP !== otp ){
+            res.status(400).json({
+                success: false,
+                message: "Invalid OTP",
+            })
+        }
+
+        if(finduser.VERIFY_OTP_EXPIRED_AT < Date.now()){
+             res.status(400).json({
+                success: false,
+                message: "OTP is expired",
+            })
+        }
+
+        finduser.IS_ACCOUNT_VERIFIED = true;
+        finduser.VERIFY_OTP = '';
+        finduser.VERIFY_OTP_EXPIRED_AT = 0;
+
+        await finduser.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Email verified successfully",
+        })
+
     }catch(error){
         res.status(500).json({
             success: false,
             message: "500 Internal Server Error",
         })
+        console.log(error);
     }
 }
 
-module.exports ={register, login, logout, sendVerifyOtp};
+module.exports ={register, login, logout, sendVerifyOtp, verifyOTP};
