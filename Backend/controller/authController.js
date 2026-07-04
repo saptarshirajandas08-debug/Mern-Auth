@@ -31,7 +31,7 @@ const register = async(req, res)=>{
         })
         await newUser.save();
 
-        const token = jwt.sign({id: user._id}, process.env.JWT_SECRET_KEY, {expiresIn: "7d"});
+        const token = jwt.sign({id: newUser._id}, process.env.JWT_SECRET_KEY, {expiresIn: "7d"});
 
         res.cookie('token', token, {
             httpOnly: true,
@@ -77,7 +77,7 @@ const login = async(req, res)=>{
         }
 
         const findEmail = await user.findOne({EMAIL});
-        if(!EMAIL){
+        if(!findEmail){
             res.status(404).json({
                 success: false,
                 message:"Email not found",
@@ -185,7 +185,7 @@ const verifyOTP = async(req, res)=>{
         }
 
         if(finduser.VERIFY_OTP === '' || finduser.VERIFY_OTP !== otp ){
-            res.status(400).json({
+            return res.status(400).json({
                 success: false,
                 message: "Invalid OTP",
             })
@@ -218,4 +218,17 @@ const verifyOTP = async(req, res)=>{
     }
 }
 
-module.exports ={register, login, logout, sendVerifyOtp, verifyOTP};
+const isAuthenticated = async(req, res)=>{
+    try{
+        return res.status(200).json({
+            message: true,
+        })
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        })
+    }
+}
+
+module.exports ={register, login, logout, sendVerifyOtp, verifyOTP, isAuthenticated};
