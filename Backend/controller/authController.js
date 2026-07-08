@@ -231,4 +231,93 @@ const isAuthenticated = async(req, res)=>{
     }
 }
 
-module.exports ={register, login, logout, sendVerifyOtp, verifyOTP, isAuthenticated};
+const sendResetOTP = async(req, res)=>{
+    try{
+        const {EMAIL} = req.body;
+
+        if(!EMAIL){
+            return res.status(404).json({
+                success: true,
+                message: "Email not found",
+            })
+        }
+
+        const foundUser = await user.findOne({EMAIL});
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        foundUser.RESET_OTP = otp;
+        foundUser.RESET_OTP_EXPIRED_AT = Date.now() + 60 * 15 * 1000; 
+        await foundUser.save();   
+
+        await transporter.sendMail({
+            from: process.env.SENDER_EMAIL,
+            to: foundUser.EMAIL,
+            subject: "Password Reset OTP",
+            text: `Reset your password with this ${otp}`,
+        });
+        return res.status(200).json({ success: true, message: "OTP for reset password sent successfully" });
+        
+
+    }catch(error){
+        
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error
+        })
+    }
+
+}
+
+const resetPassword = async(req, res)=>{
+    try{
+        const {EMAIL, otp, newPassword} = req.body;
+        if(!EMAIL || !otp || !newPassword){
+            return res.status(400).json({
+                success: false,
+                message: `Email, otp and password in required`,
+            })
+        }
+
+        const foundUser = await user.findOne({EMAIL});
+        if(!foundUser){
+            return res.status(404).json({
+                siccess: false,
+                message: "User not found",
+            })
+        }
+
+        if(foundUser.RESET_OTP === '' || foundUser.RESET_OTP !== otp){
+            return res.status(400).json({
+                success: false,
+                message: "Inavlid OTP",
+            })
+        }
+
+        if(foundUser.RESET_OTP_EXPIRED_AT < Date.now()){
+            return res.status(400).json({
+                success: false,
+                message: "OTP Expired."
+            })
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        foundUser.PASSWORD = hashedPassword
+
+        foundUser.RESET_OTP = '';
+        foundUser.RESET_OTP_EXPIRED_AT = 0;
+
+        await foundUser.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully",
+        })
+
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        })
+    }
+}
+
+module.exports ={register, login, logout, sendVerifyOtp, verifyOTP, isAuthenticated, sendResetOTP, resetPassword};
